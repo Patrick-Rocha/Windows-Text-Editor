@@ -23,7 +23,6 @@ public:
 private slots:
     void saveFile();
     void saveAsFile();
-    void saveShortcut();
     void openFile();
 
 private:
@@ -31,5 +30,6 @@ private:
     QLabel *namelabel;
     QTextEdit *maintext;
     Ui::MainWindow *ui;
+    QString fileName;
 };
 #endif // MAINWINDOW_H
