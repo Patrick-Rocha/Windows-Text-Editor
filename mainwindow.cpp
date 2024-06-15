@@ -8,6 +8,8 @@
 #include <QVBoxLayout>
 #include <QShortcut>
 #include <QKeySequence>
+#include <QTextBlock>
+#include <QTextDocument>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -44,6 +46,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionSave_As, &QAction::triggered, this, &MainWindow::saveAsFile);
     connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::openFile);
     connect(ui->actionExit, &QAction::triggered, this, &QWidget::close);
+    connect(ui->maintext, &QTextEdit::cursorPositionChanged, this, &MainWindow::updateLineCount);
+    connect(ui->maintext, &QTextEdit::textChanged, this, &MainWindow::updateWindowTitle);
+    connect(ui->actionFind, &QAction::triggered, this, &MainWindow::find);
 }
 
 MainWindow::~MainWindow()
@@ -100,6 +105,7 @@ void MainWindow::saveFile() {
         out << maintext->toPlainText();
         file.close();
         qDebug() << "Saved to file";
+        setWindowTitle(tr("%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
     }
 }
 
@@ -123,4 +129,36 @@ void MainWindow::saveAsFile() {
     out << maintext->toPlainText();
     setWindowTitle(tr("%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
     file.close();
+}
+// Find button action
+void MainWindow::find() {
+    qDebug() << "find";
+}
+
+void MainWindow::updateLineCount() {
+    QTextEdit *edit = qobject_cast<QTextEdit *>(sender());
+    Q_ASSERT(edit);
+    QTextCursor cursor = edit->textCursor();
+    cursor.movePosition(QTextCursor::StartOfLine);
+
+    int lines = 1;
+    while(cursor.positionInBlock()>0) {
+        cursor.movePosition(QTextCursor::Up);
+        lines++;
+    }
+    QTextBlock block = cursor.block().previous();
+
+    while(block.isValid()) {
+        lines += block.lineCount();
+        block = block.previous();
+    }
+    namelabel->setText(QString("Line %1      |      Patrick Rocha's Text Editor").arg(lines));
+}
+
+void MainWindow::updateWindowTitle() {
+    if (fileName.isEmpty()) {
+        setWindowTitle(tr("*No File Open - Patrick's Text Editor"));
+    } else {
+        setWindowTitle(tr("*%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
+    }
 }

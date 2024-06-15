@@ -24,6 +24,9 @@ private slots:
     void saveFile();
     void saveAsFile();
     void openFile();
+    void updateLineCount();
+    void updateWindowTitle();
+    void find();
 
 private:
     QVBoxLayout *mainlayout;
