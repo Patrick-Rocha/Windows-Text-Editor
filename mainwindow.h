@@ -5,6 +5,8 @@
 #include <QTextEdit>
 #include <QLabel>
 #include <QVBoxLayout>
+#include "finddialog.h"
+#include <QFont>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -27,12 +29,18 @@ private slots:
     void updateLineCount();
     void updateWindowTitle();
     void find();
+    void zoomIn();
+    void zoomOut();
+    void defaultZoom();
+    void changeFont(int size);
 
 private:
+    FindDialog *finddialog;
     QVBoxLayout *mainlayout;
     QLabel *namelabel;
     QTextEdit *maintext;
     Ui::MainWindow *ui;
     QString fileName;
+    QFont font;
 };
 #endif // MAINWINDOW_H

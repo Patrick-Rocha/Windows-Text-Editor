@@ -10,10 +10,12 @@
 #include <QKeySequence>
 #include <QTextBlock>
 #include <QTextDocument>
+#include <QFont>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , finddialog(nullptr)
 {
     ui->setupUi(this);
 
@@ -25,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
     // Stylesheets
     maintext->setStyleSheet("QTextEdit { margin: 0px; padding: 0px; border: none; border-top: 1px solid gray; }");
     namelabel->setStyleSheet("QLabel#namelabel { padding-top: 10px; padding-right: 10px; }");
+    changeFont(12);
 
     // Set margins to 0
     mainlayout->setContentsMargins(0, 0, 0, 0);
@@ -49,6 +52,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->maintext, &QTextEdit::cursorPositionChanged, this, &MainWindow::updateLineCount);
     connect(ui->maintext, &QTextEdit::textChanged, this, &MainWindow::updateWindowTitle);
     connect(ui->actionFind, &QAction::triggered, this, &MainWindow::find);
+    connect(ui->actionZoomIn, &QAction::triggered, this, &MainWindow::zoomIn);
+    connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
+    connect(ui->actionDefaultZoom, &QAction::triggered, this, &MainWindow::defaultZoom);
 }
 
 MainWindow::~MainWindow()
@@ -87,6 +93,31 @@ void MainWindow::openFile() {
 
     // Close the file
     file.close();
+}
+
+void MainWindow::changeFont(int size) {
+    font = maintext->font();
+    font.setPointSize(size);
+    maintext->setFont(font);
+    qDebug("Font Size: %d", font.pointSize());
+}
+
+void MainWindow::zoomIn() {
+    int fontSize = font.pointSize();
+    if (fontSize < 45) {
+        changeFont(fontSize + 2);
+    }
+}
+
+void MainWindow::zoomOut() {
+    int fontSize = font.pointSize();
+    if (fontSize > 7) {
+        changeFont(fontSize - 2);
+    }
+}
+
+void MainWindow::defaultZoom() {
+    changeFont(12);
 }
 
 // Save button action
@@ -133,6 +164,12 @@ void MainWindow::saveAsFile() {
 // Find button action
 void MainWindow::find() {
     qDebug() << "find";
+    if (!finddialog) {
+        finddialog = new FindDialog(this);
+    }
+
+    finddialog->show();
+
 }
 
 void MainWindow::updateLineCount() {
