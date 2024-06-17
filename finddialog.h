@@ -19,21 +19,37 @@ public:
     explicit FindDialog(QWidget *parent = nullptr);
     ~FindDialog();
 
-private slots:
+public slots:
     void find();
 
+protected:
+    void showEvent(QShowEvent *event) override;
+
+signals:
+    void findRequested(QString &findText, bool highlight, bool caseMatch, bool wholeMatch, QString direction);
+    void replaceRequested(bool all, QString &replaceText);
+
+private slots:
     void on_cancelbutton_clicked();
+    void on_replaceButton_clicked();
+    void on_replaceAllButton_clicked();
 
 private:
     Ui::FindDialog *ui;
     QPlainTextEdit *findtext;
+    QPlainTextEdit *replaceText;
     QLabel *findlabel;
+    QLabel *replaceLabel;
     QLabel *directionlabel;
     QCheckBox *highlightbox;
     QCheckBox *casebox;
     QCheckBox *wholebox;
     QPushButton *upbutton;
     QPushButton *downbutton;
+    QPushButton *replaceButton;
+    QPushButton *replaceAllButton;
+    QString direction;
+    QObject *lastSender;
 };
 
 #endif // FINDDIALOG_H

@@ -1,5 +1,10 @@
+// TODO: Complete the "replace" feature
+// Maybe make tabs like in notepad++
+// Font changer?
+
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "exitdialog.h"
 
 #include <QDebug>
 #include <QFileDialog>
@@ -11,13 +16,16 @@
 #include <QTextBlock>
 #include <QTextDocument>
 #include <QFont>
+#include <QRegularExpression>
+#include <QCloseEvent>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , finddialog(nullptr)
 {
     ui->setupUi(this);
+    findDialog = new FindDialog(this);
+    exitDialog = new ExitDialog(this);
 
     // Creating the widgets
     mainlayout = findChild<QVBoxLayout*>("mainlayout");
@@ -55,6 +63,24 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionZoomIn, &QAction::triggered, this, &MainWindow::zoomIn);
     connect(ui->actionZoomOut, &QAction::triggered, this, &MainWindow::zoomOut);
     connect(ui->actionDefaultZoom, &QAction::triggered, this, &MainWindow::defaultZoom);
+    connect(this, &MainWindow::leaveRequested, exitDialog, &ExitDialog::leave);
+    connect(findDialog, &FindDialog::findRequested, this, &MainWindow::highlight);
+    connect(findDialog, &FindDialog::replaceRequested, this, &MainWindow::replace);
+    connect(exitDialog, &ExitDialog::dontSaveRequested, this, &MainWindow::leave);
+    connect(exitDialog, &ExitDialog::saveRequested, this, &MainWindow::saveLeave);
+    connect(ui->actionUndo, &QAction::triggered, maintext, &QTextEdit::undo);
+    connect(ui->actionRedo, &QAction::triggered, maintext, &QTextEdit::redo);
+    connect(exitDialog, &ExitDialog::exitConfirm, this, &MainWindow::leave);
+    connect(this, &MainWindow::readyToClose, this, &MainWindow::close);
+    connect(this, &MainWindow::highlightRequest, findDialog, &FindDialog::find);
+    connect(findDialog, &FindDialog::finished, this, &MainWindow::clearHighlights);
+
+    // Setting initial values for global variables
+    highlightCount = 1;
+    totalHighlight = 0;
+    fileSaved = true;
+    matchCase = false;
+    matchWhole = false;
 }
 
 MainWindow::~MainWindow()
@@ -99,7 +125,6 @@ void MainWindow::changeFont(int size) {
     font = maintext->font();
     font.setPointSize(size);
     maintext->setFont(font);
-    qDebug("Font Size: %d", font.pointSize());
 }
 
 void MainWindow::zoomIn() {
@@ -124,7 +149,6 @@ void MainWindow::defaultZoom() {
 void MainWindow::saveFile() {
     qDebug() << "Save button wowwerwer!";
     if (fileName.isEmpty()) {
-        qDebug() << "empty";
         saveAsFile();
     } else {
         QFile file(fileName);
@@ -135,15 +159,13 @@ void MainWindow::saveFile() {
         QTextStream out(&file);
         out << maintext->toPlainText();
         file.close();
-        qDebug() << "Saved to file";
         setWindowTitle(tr("%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
+        fileSaved = true;
     }
 }
 
 // Save-As button action
 void MainWindow::saveAsFile() {
-    qDebug() << "woof";
-
     // Opens a save menu and returns the path of the new file
     fileName = QFileDialog::getSaveFileName(maintext, tr("Save File As"), "", tr("Text Files (*.txt);;All Files (*)"));
     if (fileName.isEmpty()) {
@@ -158,18 +180,172 @@ void MainWindow::saveAsFile() {
 
     QTextStream out(&file);
     out << maintext->toPlainText();
+    fileSaved = true;
     setWindowTitle(tr("%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
     file.close();
 }
 // Find button action
 void MainWindow::find() {
-    qDebug() << "find";
-    if (!finddialog) {
-        finddialog = new FindDialog(this);
+    if (!findDialog) {
+        findDialog = new FindDialog(this);
     }
 
-    finddialog->show();
+    findDialog->show();
+}
 
+void MainWindow::saveLeave() {
+    saveFile();
+    emit leaveRequested();
+}
+
+void MainWindow::leave() {
+    fileSaved = true;
+    emit readyToClose();
+}
+
+void MainWindow::closeEvent(QCloseEvent *event) {
+    if (!fileSaved) {
+        if (!exitDialog) {
+            exitDialog = new ExitDialog(this);
+        }
+
+        exitDialog->show();
+        event->ignore();
+    }
+}
+
+void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bool wholeMatch, QString direction) {
+    matchCase = caseMatch;
+    matchWhole = wholeMatch;
+
+    if (totalHighlight > 0) {
+        if (direction == "up") {
+            if (highlightCount == 1) {
+                highlightCount = totalHighlight;
+            } else {
+                highlightCount--;
+            }
+            qDebug() << highlightCount;
+            qDebug() << totalHighlight;
+        } else if (direction == "down") {
+            if (highlightCount >= totalHighlight) {
+                highlightCount = 1;
+            } else {
+                highlightCount++;
+            }
+            qDebug() << highlightCount;
+            qDebug() << totalHighlight;
+        }
+    }
+
+    qDebug() << "highlighting";
+    QTextCursor cursor(maintext->document());
+
+    QTextCharFormat highlightFormatCurrent;
+    QColor lightBlueColor(173, 216, 230);
+    highlightFormatCurrent.setBackground(lightBlueColor);
+    QTextCharFormat highlightFormatOthers;
+    highlightFormatOthers.setBackground(Qt::yellow);
+    QTextCharFormat highlightFormatTransparent;
+    highlightFormatTransparent.setBackground(Qt::transparent);
+    //QList<QTextEdit::ExtraSelection> extraSelections;
+    extraSelections.clear();
+
+    int count = 0;
+
+    // Regular expressions for whole word matching
+    QString pattern;
+    if (wholeMatch) {
+        pattern = "\\b" + QRegularExpression::escape(findtext) + "\\b";
+    } else {
+        pattern = QRegularExpression::escape(findtext);
+    }
+    QRegularExpression re(pattern);
+
+    // Cycles through the text looking for matches
+    if (!findtext.isEmpty()) {
+        while (!cursor.isNull() && !cursor.atEnd()) {
+            if (caseMatch) {
+                cursor = maintext->document()->find(re, cursor, QTextDocument::FindCaseSensitively);
+            } else {
+                cursor = maintext->document()->find(re, cursor);
+            }
+            if (!cursor.isNull()) {
+                count++;
+                if (count == highlightCount) {
+                    QTextEdit::ExtraSelection extraBlue;
+                    extraBlue.cursor = cursor;
+                    extraBlue.format = highlightFormatCurrent;
+                    extraSelections.append(extraBlue);
+                } else if (highlight) {
+                    QTextEdit::ExtraSelection extraYellow;
+                    extraYellow.cursor = cursor;
+                    extraYellow.format = highlightFormatOthers;
+                    extraSelections.append(extraYellow);
+                } else {
+                    QTextEdit::ExtraSelection extraTransparent;
+                    extraTransparent.cursor = cursor;
+                    extraTransparent.format = highlightFormatTransparent;
+                    extraSelections.append(extraTransparent);
+                }
+            }
+        }
+    }
+
+    // Keeps track of the total number of matches
+    totalHighlight = count;
+
+    // Performs the highlight
+    maintext->setExtraSelections(extraSelections);
+
+    // Scroll to the last occurrence of the blue highlight
+    QTextCursor lastBlueCursor = maintext->document()->find(re, QTextCursor::End, QTextDocument::FindBackward);
+    while (!lastBlueCursor.isNull()) {
+        if (lastBlueCursor.charFormat().background().color() == lightBlueColor) {
+            maintext->setTextCursor(lastBlueCursor);
+            maintext->ensureCursorVisible();
+            break;
+        }
+        lastBlueCursor = maintext->document()->find(re, lastBlueCursor, QTextDocument::FindBackward);
+    }
+}
+
+// Removes all of the highlights upon closing the find dialog
+void MainWindow::clearHighlights() {
+    extraSelections.clear();
+    maintext->setExtraSelections(extraSelections);
+}
+
+// The replace function within the find dialog
+void MainWindow::replace(bool all, QString &replaceText) {
+    qDebug("replace");
+    qDebug() << replaceText;
+    if (!replaceText.isEmpty()) {
+        foreach (const QTextEdit::ExtraSelection &sel, extraSelections) {
+            QTextCursor cur = sel.cursor;
+            QTextCharFormat fmt = sel.format;
+            qDebug() << "Selection from" << cur.selectionStart() << "to" << cur.selectionEnd();
+            qDebug() << "Background color:" << fmt.background().color().name();
+
+            // Check if the background color is one of the highlighted colours
+            QString bgColor = fmt.background().color().name();
+            if (bgColor == "#add8e6" || (all && (bgColor == "#000000" || bgColor == "#ffff00"))) {
+
+                // Replace the selected text
+                cur.beginEditBlock(); // Start a new edit block for undo/redo
+                cur.insertText(replaceText);
+                cur.endEditBlock(); // End the edit block
+
+                // Breaks after the first replacement
+                if (!all) {
+                    break;
+                }
+            }
+        }
+
+        // Sends a signal to cast "highlight" again, updating the highlights
+        emit highlightRequest();
+    }
 }
 
 void MainWindow::updateLineCount() {
@@ -193,6 +369,7 @@ void MainWindow::updateLineCount() {
 }
 
 void MainWindow::updateWindowTitle() {
+    fileSaved = false;
     if (fileName.isEmpty()) {
         setWindowTitle(tr("*No File Open - Patrick's Text Editor"));
     } else {

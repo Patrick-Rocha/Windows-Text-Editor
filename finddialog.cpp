@@ -15,9 +15,12 @@ FindDialog::FindDialog(QWidget *parent)
 
     setWindowTitle(tr("Find Text"));
 
+    replaceButton = findChild<QPushButton*>("replaceButton");
+    replaceAllButton = findChild<QPushButton*>("replaceAllButton");
     findtext = findChild<QPlainTextEdit*>("findtext");
     findlabel = findChild<QLabel*>("findlabel");
     directionlabel = findChild<QLabel*>("directionlabel");
+    replaceLabel = findChild<QLabel*>("replaceLabel");
     highlightbox = findChild<QCheckBox*>("highlightbox");
     casebox = findChild<QCheckBox*>("casebox");
     wholebox = findChild<QCheckBox*>("wholebox");
@@ -39,12 +42,51 @@ FindDialog::~FindDialog()
     delete ui;
 }
 
+
+void FindDialog::showEvent(QShowEvent *event)
+{
+    // Call the base class showEvent to handle default behavior
+    QDialog::showEvent(event);
+
+    // Call find() when the dialog is shown
+    find();
+}
+
 void FindDialog::find() {
-    qDebug("Find");
+    lastSender = sender();
+
+    if (lastSender == ui->upbutton) {
+        direction = "up";
+    } else if (lastSender == ui->downbutton) {
+        direction = "down";
+    } else {
+        direction = "neutral";
+    }
+
+    QString searchText = ui->findtext->toPlainText();
+    bool highlight = ui->highlightbox->isChecked();
+    bool caseMatch = ui->casebox->isChecked();
+    bool wholeMatch = ui->wholebox->isChecked();
+
+    emit findRequested(searchText, highlight, caseMatch, wholeMatch, direction);
 }
 
 void FindDialog::on_cancelbutton_clicked()
 {
     this->close();
+}
+
+
+void FindDialog::on_replaceButton_clicked()
+{
+    QString replacingText = ui->replaceText->toPlainText();
+    emit replaceRequested(false, replacingText);
+}
+
+
+void FindDialog::on_replaceAllButton_clicked()
+{
+    QString replacingText = ui->replaceText->toPlainText();
+    emit replaceRequested(true, replacingText);
 }
 
