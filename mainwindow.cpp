@@ -261,6 +261,7 @@ void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bo
         pattern = QRegularExpression::escape(findtext);
     }
     QRegularExpression re(pattern);
+    int currentHighlightPosition = -1;
 
     // Cycles through the text looking for matches
     if (!findtext.isEmpty()) {
@@ -277,6 +278,7 @@ void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bo
                     extraBlue.cursor = cursor;
                     extraBlue.format = highlightFormatCurrent;
                     extraSelections.append(extraBlue);
+                    currentHighlightPosition = cursor.position();
                 } else if (highlight) {
                     QTextEdit::ExtraSelection extraYellow;
                     extraYellow.cursor = cursor;
@@ -298,15 +300,12 @@ void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bo
     // Performs the highlight
     maintext->setExtraSelections(extraSelections);
 
-    // Scroll to the last occurrence of the blue highlight
-    QTextCursor lastBlueCursor = maintext->document()->find(re, QTextCursor::End, QTextDocument::FindBackward);
-    while (!lastBlueCursor.isNull()) {
-        if (lastBlueCursor.charFormat().background().color() == lightBlueColor) {
-            maintext->setTextCursor(lastBlueCursor);
-            maintext->ensureCursorVisible();
-            break;
-        }
-        lastBlueCursor = maintext->document()->find(re, lastBlueCursor, QTextDocument::FindBackward);
+    // Scroll to the blue highlight to ensure it's visible
+    if (count > 0 and currentHighlightPosition != -1) {
+        QTextCursor cursorToScroll = maintext->textCursor();
+        cursorToScroll.setPosition(currentHighlightPosition);
+        maintext->setTextCursor(cursorToScroll);
+        maintext->ensureCursorVisible();
     }
 }
 
@@ -376,3 +375,9 @@ void MainWindow::updateWindowTitle() {
         setWindowTitle(tr("*%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
     }
 }
+
+void MainWindow::on_actionPreferences_triggered()
+{
+
+}
+
