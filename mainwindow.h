@@ -28,14 +28,16 @@ public:
 signals:
     void leaveRequested();
     void readyToClose();
-    void highlightRequest();
+    void highlightRequest(bool changingText);
+    void directoryRequest();
 
 public slots:
-    void highlight(QString &findtext, bool highlight, bool caseMatch, bool wholeMatch, QString direction);
+    void highlight(QString &findtext, bool highlight, bool caseMatch, bool wholeMatch, QString direction, bool changingText);
     void saveLeave();
     void leave();
     void replace(bool all, QString &replacetext);
     void changeColours(int red, int green, int blue, int index);
+    void changeDirectory(bool current, bool remember, QString directory);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -71,5 +73,9 @@ private:
     bool matchCase;
     bool matchWhole;
     QList<QTextEdit::ExtraSelection> extraSelections;
+    QColor currentHighlightColour;
+    QColor otherHighlightColour;
+    QString chosenDirectory;
+    QString fileDirectory;
 };
 #endif // MAINWINDOW_H

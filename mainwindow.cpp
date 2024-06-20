@@ -1,6 +1,10 @@
-// TODO: Complete the "replace" feature
-// Maybe make tabs like in notepad++
+// TODO: Maybe make tabs like in notepad++
 // Font changer?
+// Add new and new window buttons
+// Complete preferences
+// Remember last directory
+// Font
+// Search engine
 
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
@@ -19,6 +23,7 @@
 #include <QFont>
 #include <QRegularExpression>
 #include <QCloseEvent>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -76,6 +81,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(this, &MainWindow::readyToClose, this, &MainWindow::close);
     connect(this, &MainWindow::highlightRequest, findDialog, &FindDialog::find);
     connect(findDialog, &FindDialog::finished, this, &MainWindow::clearHighlights);
+    connect(preferencesDialog, &PreferencesDialog::colourRequest, this, &MainWindow::changeColours);
+    connect(preferencesDialog, &PreferencesDialog::directoryRequest, this, &MainWindow::changeDirectory);
+    connect(this, &MainWindow::directoryRequest, preferencesDialog, &PreferencesDialog::handleDirectoryRequest);
 
     // Setting initial values for global variables
     highlightCount = 1;
@@ -83,6 +91,10 @@ MainWindow::MainWindow(QWidget *parent)
     fileSaved = true;
     matchCase = false;
     matchWhole = false;
+    currentHighlightColour = QColor(173, 216, 230);
+    otherHighlightColour = QColor(255, 255, 0);
+    fileDirectory = "";
+    chosenDirectory = "";
 }
 
 MainWindow::~MainWindow()
@@ -92,10 +104,8 @@ MainWindow::~MainWindow()
 
 // Open button action
 void MainWindow::openFile() {
-    qDebug() << "open";
-
     // Open file dialog to select a file
-    fileName = QFileDialog::getOpenFileName(this, tr("Open File"), "", tr("Text Files (*.txt);;All Files (*)"));
+    fileName = QFileDialog::getOpenFileName(this, tr("Open File"), chosenDirectory, tr("Text Files (*.txt);;All Files (*)"));
 
     // Check if a file was selected
     if (fileName.isEmpty()) {
@@ -119,8 +129,14 @@ void MainWindow::openFile() {
     maintext->setPlainText(fileContents);
     setWindowTitle(tr("%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
 
-    // Close the file
+    // Saving the file directory into the global variable
+    QFileInfo fileInfo(file);
+    fileDirectory = fileInfo.path();
+    qDebug() << fileDirectory;
     file.close();
+    fileSaved = true;
+
+    emit directoryRequest();
 }
 
 void MainWindow::changeFont(int size) {
@@ -169,12 +185,14 @@ void MainWindow::saveFile() {
 // Save-As button action
 void MainWindow::saveAsFile() {
     // Opens a save menu and returns the path of the new file
-    fileName = QFileDialog::getSaveFileName(maintext, tr("Save File As"), "", tr("Text Files (*.txt);;All Files (*)"));
+    fileName = QFileDialog::getSaveFileName(maintext, tr("Save File As"), chosenDirectory, tr("Text Files (*.txt);;All Files (*)"));
+
     if (fileName.isEmpty()) {
         return;
     }
 
     QFile file(fileName);
+
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QMessageBox::warning(this, tr("Error"), tr("Cannot save file: ") + file.errorString());
         return;
@@ -184,8 +202,16 @@ void MainWindow::saveAsFile() {
     out << maintext->toPlainText();
     fileSaved = true;
     setWindowTitle(tr("%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
+
+    // Saving the file directory into the global variable
+    QFileInfo fileInfo(file);
+    fileDirectory = fileInfo.path();
+    qDebug() << fileDirectory;
     file.close();
+
+    emit directoryRequest();
 }
+
 // Find button action
 void MainWindow::find() {
     if (!findDialog) {
@@ -216,7 +242,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     }
 }
 
-void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bool wholeMatch, QString direction) {
+void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bool wholeMatch, QString direction, bool changingText) {
     matchCase = caseMatch;
     matchWhole = wholeMatch;
 
@@ -235,22 +261,17 @@ void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bo
             } else {
                 highlightCount++;
             }
-            qDebug() << highlightCount;
-            qDebug() << totalHighlight;
         }
     }
 
-    qDebug() << "highlighting";
     QTextCursor cursor(maintext->document());
 
     QTextCharFormat highlightFormatCurrent;
-    QColor lightBlueColor(173, 216, 230);
-    highlightFormatCurrent.setBackground(lightBlueColor);
+    highlightFormatCurrent.setBackground(currentHighlightColour);
     QTextCharFormat highlightFormatOthers;
-    highlightFormatOthers.setBackground(Qt::yellow);
+    highlightFormatOthers.setBackground(otherHighlightColour);
     QTextCharFormat highlightFormatTransparent;
     highlightFormatTransparent.setBackground(Qt::transparent);
-    //QList<QTextEdit::ExtraSelection> extraSelections;
     extraSelections.clear();
 
     int count = 0;
@@ -303,11 +324,14 @@ void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bo
     maintext->setExtraSelections(extraSelections);
 
     // Scroll to the blue highlight to ensure it's visible
-    if (count > 0 and currentHighlightPosition != -1) {
-        QTextCursor cursorToScroll = maintext->textCursor();
-        cursorToScroll.setPosition(currentHighlightPosition);
-        maintext->setTextCursor(cursorToScroll);
-        maintext->ensureCursorVisible();
+    if (!changingText) {
+        if (count > 0 and currentHighlightPosition != -1) {
+            QTextCursor cursorToScroll = maintext->textCursor();
+            //QTextCursor cursorToScroll(maintext->document());
+            cursorToScroll.setPosition(currentHighlightPosition);
+            maintext->setTextCursor(cursorToScroll);
+            maintext->ensureCursorVisible();
+        }
     }
 }
 
@@ -329,8 +353,9 @@ void MainWindow::replace(bool all, QString &replaceText) {
             qDebug() << "Background color:" << fmt.background().color().name();
 
             // Check if the background color is one of the highlighted colours
-            QString bgColor = fmt.background().color().name();
-            if (bgColor == "#add8e6" || (all && (bgColor == "#000000" || bgColor == "#ffff00"))) {
+            QString bgColour = fmt.background().color().name();
+
+            if (bgColour == currentHighlightColour.name() || (all && (bgColour == "#000000" || bgColour == otherHighlightColour.name()))) {
 
                 // Replace the selected text
                 cur.beginEditBlock(); // Start a new edit block for undo/redo
@@ -345,10 +370,11 @@ void MainWindow::replace(bool all, QString &replaceText) {
         }
 
         // Sends a signal to cast "highlight" again, updating the highlights
-        emit highlightRequest();
+        emit highlightRequest(false);
     }
 }
 
+// Updates the line count on the bottom of the main window
 void MainWindow::updateLineCount() {
     QTextEdit *edit = qobject_cast<QTextEdit *>(sender());
     Q_ASSERT(edit);
@@ -369,12 +395,18 @@ void MainWindow::updateLineCount() {
     namelabel->setText(QString("Line %1      |      Patrick Rocha's Text Editor").arg(lines));
 }
 
+// Adds an * to the title to show that the file needs to be saved
 void MainWindow::updateWindowTitle() {
     fileSaved = false;
     if (fileName.isEmpty()) {
         setWindowTitle(tr("*No File Open - Patrick's Text Editor"));
     } else {
         setWindowTitle(tr("*%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
+    }
+
+    // Update the highlights to prevent a certain bug
+    if (findDialog->isVisible()) {
+        emit highlightRequest(true);
     }
 }
 
@@ -391,12 +423,46 @@ void MainWindow::on_actionPreferences_triggered()
 void MainWindow::changeColours(int red, int green, int blue, int index) {
     if (index == 0) {
         QTextCursor cursor = maintext->textCursor();
+        int oldPosition = cursor.position();
+        int oldAnchor = cursor.anchor();
+
         QTextCharFormat format;
         format.setForeground(QColor(red, green, blue));
         cursor.select(QTextCursor::Document);
-        cursor.setCharFormat(format);
-        cursor.clearSelection();
+        cursor.mergeCharFormat(format);
+
+        // Restore cursor position and clear selection
+        cursor.setPosition(oldPosition);
+        cursor.setPosition(oldAnchor, QTextCursor::KeepAnchor);
         maintext->setTextCursor(cursor);
+    } else if (index == 1) {
+        QString backgroundColor = QString("rgb(%1, %2, %3)").arg(red).arg(green).arg(blue);
+        maintext->setStyleSheet(QString("background-color: %1;").arg(backgroundColor));
+    } else if (index == 2) {
+        currentHighlightColour = QColor(red, green, blue);
+        if (findDialog->isVisible()) {
+            emit highlightRequest(false);
+        }
+    } else if (index == 3) {
+        otherHighlightColour = QColor(red, green, blue);
+        if (findDialog->isVisible()) {
+            emit highlightRequest(false);
+        }
     }
 }
 
+void MainWindow::changeDirectory(bool current, bool remember, QString directory) {
+    if (current) {
+        chosenDirectory = fileDirectory;
+    } else if (remember) {
+
+    } else {
+        chosenDirectory = directory;
+    }
+
+    // If the directory isn't real
+    QDir dir(chosenDirectory);
+    if (!(dir.exists() && dir.isReadable())) {
+        chosenDirectory = "";
+    }
+}

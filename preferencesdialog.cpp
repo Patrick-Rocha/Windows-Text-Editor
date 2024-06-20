@@ -7,17 +7,35 @@
 #include <QIntValidator>
 #include <QString>
 #include <QDebug>
+#include <QRadioButton>
+#include <QFileDialog>
 
 PreferencesDialog::PreferencesDialog(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::PreferencesDialog)
 {
     ui->setupUi(this);
+    setWindowTitle(tr("Preferences"));
 
+    // Creating some widgets
     restore1Button = findChild<QPushButton*>("restore1Button");
     restore2Button = findChild<QPushButton*>("restore2Button");
     restore3Button = findChild<QPushButton*>("restore3Button");
     restore4Button = findChild<QPushButton*>("restore4Button");
+    currentRadio = findChild<QRadioButton*>("currentRadio");
+    rememberRadio = findChild<QRadioButton*>("rememebrRadio");
+    chooseRadio = findChild<QRadioButton*>("chooseRadio");
+    chooseButton = findChild<QPushButton*>("chooseButton");
+    chooseText = findChild<QLineEdit*>("chooseText");
+
+    // Establishing some connections
+    connect(ui->currentRadio, &QRadioButton::clicked, this, &PreferencesDialog::handleDirectoryRequest);
+    connect(ui->rememberRadio, &QRadioButton::clicked, this, &PreferencesDialog::handleDirectoryRequest);
+    connect(ui->chooseRadio, &QRadioButton::clicked, this, &PreferencesDialog::handleDirectoryRequest);
+    connect(ui->chooseText, &QLineEdit::textChanged, this, &PreferencesDialog::handleDirectoryRequest);
+    connect(ui->chooseRadio, &QRadioButton::toggled, this, &PreferencesDialog::editableChooseText);
+
+    PreferencesDialog::editableChooseText(false);
 
     // Initialize sliders and text fields
     for (int i = 0; i < 4; ++i) {
@@ -139,48 +157,47 @@ void PreferencesDialog::updateTextFromSlider(int value) {
 
 void PreferencesDialog::on_restore1Button_clicked()
 {
-    redSliders[0]->setValue(128);
-    redTexts[0]->setText("128");
-    greenSliders[0]->setValue(128);
-    greenTexts[0]->setText("128");
-    blueSliders[0]->setValue(128);
-    blueTexts[0]->setText("128");
+    redSliders[0]->setValue(0);
+    redTexts[0]->setText("0");
+    greenSliders[0]->setValue(0);
+    greenTexts[0]->setText("0");
+    blueSliders[0]->setValue(0);
+    blueTexts[0]->setText("0");
 }
 
 
 void PreferencesDialog::on_restore2Button_clicked()
 {
-    redSliders[1]->setValue(128);
-    redTexts[1]->setText("128");
-    greenSliders[1]->setValue(128);
-    greenTexts[1]->setText("128");
-    blueSliders[1]->setValue(128);
-    blueTexts[1]->setText("128");
+    redSliders[1]->setValue(255);
+    redTexts[1]->setText("255");
+    greenSliders[1]->setValue(255);
+    greenTexts[1]->setText("255");
+    blueSliders[1]->setValue(255);
+    blueTexts[1]->setText("255");
 }
 
 
 void PreferencesDialog::on_restore3Button_clicked()
 {
-    redSliders[2]->setValue(128);
-    redTexts[2]->setText("128");
-    greenSliders[2]->setValue(128);
-    greenTexts[2]->setText("128");
-    blueSliders[2]->setValue(128);
-    blueTexts[2]->setText("128");
+    redSliders[2]->setValue(173);
+    redTexts[2]->setText("173");
+    greenSliders[2]->setValue(216);
+    greenTexts[2]->setText("216");
+    blueSliders[2]->setValue(230);
+    blueTexts[2]->setText("230");
 }
 
 void PreferencesDialog::on_restore4Button_clicked()
 {
-    redSliders[3]->setValue(128);
-    redTexts[3]->setText("128");
-    greenSliders[3]->setValue(128);
-    greenTexts[3]->setText("128");
-    blueSliders[3]->setValue(128);
-    blueTexts[3]->setText("128");
+    redSliders[3]->setValue(255);
+    redTexts[3]->setText("255");
+    greenSliders[3]->setValue(255);
+    greenTexts[3]->setText("255");
+    blueSliders[3]->setValue(0);
+    blueTexts[3]->setText("0");
 }
 
 void PreferencesDialog::handleColourRequest() {
-    qDebug() << "Colour request sent";
     QSlider *senderSlider = qobject_cast<QSlider*>(sender());
     if (!senderSlider) return;
 
@@ -198,4 +215,32 @@ void PreferencesDialog::handleColourRequest() {
 
     // Emit signal with RGB values and index
     emit colourRequest(red, green, blue, index);
+}
+
+// Lets the user choose a path and puts it onto chooseText
+void PreferencesDialog::on_chooseButton_clicked()
+{
+    QString directoryPath = QFileDialog::getExistingDirectory(this, tr("Select Directory"), QDir::homePath());
+    if (!directoryPath.isEmpty()) {
+        ui->chooseText->setText(directoryPath);
+    }
+}
+
+// Sends a signal which contains everything that needs to be known about the directory
+void PreferencesDialog::handleDirectoryRequest() {
+    QString directory = "";
+    bool current = false;
+    bool remember = false;
+    if (ui->currentRadio->isChecked()) {
+        current = true;
+    } else if (ui->rememberRadio->isChecked()) {
+        remember = true;
+    } else {
+        directory = ui->chooseText->text();
+    }
+    emit directoryRequest(current, remember, directory);
+}
+
+void PreferencesDialog::editableChooseText(bool checked) {
+    ui->chooseText->setReadOnly(!checked);
 }

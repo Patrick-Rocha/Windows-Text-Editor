@@ -29,12 +29,12 @@ FindDialog::FindDialog(QWidget *parent)
 
     findtext->setStyleSheet("QPlainTextEdit {text-align: center;}");
 
-    connect(ui->findtext, &QPlainTextEdit::textChanged, this, &FindDialog::find);
-    connect(ui->highlightbox, &QCheckBox::stateChanged, this, &FindDialog::find);
-    connect(ui->casebox, &QCheckBox::stateChanged, this, &FindDialog::find);
-    connect(ui->wholebox, &QCheckBox::stateChanged, this, &FindDialog::find);
-    connect(ui->upbutton, &QPushButton::clicked, this, &FindDialog::find);
-    connect(ui->downbutton, &QPushButton::clicked, this, &FindDialog::find);
+    connect(ui->findtext, &QPlainTextEdit::textChanged, this, &FindDialog::findHelp);
+    connect(ui->highlightbox, &QCheckBox::stateChanged, this, &FindDialog::findHelp);
+    connect(ui->casebox, &QCheckBox::stateChanged, this, &FindDialog::findHelp);
+    connect(ui->wholebox, &QCheckBox::stateChanged, this, &FindDialog::findHelp);
+    connect(ui->upbutton, &QPushButton::clicked, this, &FindDialog::findHelp);
+    connect(ui->downbutton, &QPushButton::clicked, this, &FindDialog::findHelp);
 }
 
 FindDialog::~FindDialog()
@@ -49,10 +49,10 @@ void FindDialog::showEvent(QShowEvent *event)
     QDialog::showEvent(event);
 
     // Call find() when the dialog is shown
-    find();
+    find(false);
 }
 
-void FindDialog::find() {
+void FindDialog::find(bool changingText) {
     lastSender = sender();
 
     if (lastSender == ui->upbutton) {
@@ -68,7 +68,11 @@ void FindDialog::find() {
     bool caseMatch = ui->casebox->isChecked();
     bool wholeMatch = ui->wholebox->isChecked();
 
-    emit findRequested(searchText, highlight, caseMatch, wholeMatch, direction);
+    emit findRequested(searchText, highlight, caseMatch, wholeMatch, direction, changingText);
+}
+
+void FindDialog::findHelp() {
+    find(false);
 }
 
 void FindDialog::on_cancelbutton_clicked()

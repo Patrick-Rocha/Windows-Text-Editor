@@ -8,6 +8,7 @@
 #include <QMimeData>
 #include <QSlider>
 #include <QLineEdit>
+#include <QRadioButton>
 
 namespace Ui {
 class PreferencesDialog;
@@ -21,8 +22,12 @@ public:
     explicit PreferencesDialog(QWidget *parent = nullptr);
     ~PreferencesDialog();
 
+public slots:
+    void handleDirectoryRequest();
+
 signals:
     void colourRequest(int red, int green, int blue, int index);
+    void directoryRequest(bool current, bool remember, QString directory);
 
 private:
     Ui::PreferencesDialog *ui;
@@ -35,10 +40,15 @@ private:
     QSlider *redSliders[4];
     QSlider *greenSliders[4];
     QSlider *blueSliders[4];
-
     QLineEdit *redTexts[4];
     QLineEdit *greenTexts[4];
     QLineEdit *blueTexts[4];
+
+    QRadioButton *currentRadio;
+    QRadioButton *rememberRadio;
+    QRadioButton *chooseRadio;
+    QPushButton *chooseButton;
+    QLineEdit *chooseText;
 
 private slots:
     void validateInput();
@@ -49,6 +59,8 @@ private slots:
     void on_restore3Button_clicked();
     void on_restore4Button_clicked();
     void handleColourRequest();
+    void on_chooseButton_clicked();
+    void editableChooseText(bool checked);
 };
 
 #endif // PREFERENCESDIALOG_H

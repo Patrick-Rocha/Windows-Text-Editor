@@ -20,19 +20,20 @@ public:
     ~FindDialog();
 
 public slots:
-    void find();
+    void find(bool changingText);
 
 protected:
     void showEvent(QShowEvent *event) override;
 
 signals:
-    void findRequested(QString &findText, bool highlight, bool caseMatch, bool wholeMatch, QString direction);
+    void findRequested(QString &findText, bool highlight, bool caseMatch, bool wholeMatch, QString direction, bool changingText);
     void replaceRequested(bool all, QString &replaceText);
 
 private slots:
     void on_cancelbutton_clicked();
     void on_replaceButton_clicked();
     void on_replaceAllButton_clicked();
+    void findHelp();
 
 private:
     Ui::FindDialog *ui;
