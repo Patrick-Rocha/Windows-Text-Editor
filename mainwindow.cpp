@@ -5,6 +5,7 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include "exitdialog.h"
+#include "preferencesdialog.h"
 
 #include <QDebug>
 #include <QFileDialog>
@@ -26,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     findDialog = new FindDialog(this);
     exitDialog = new ExitDialog(this);
+    preferencesDialog = new PreferencesDialog(this);
 
     // Creating the widgets
     mainlayout = findChild<QVBoxLayout*>("mainlayout");
@@ -376,8 +378,25 @@ void MainWindow::updateWindowTitle() {
     }
 }
 
+// Shows the preferences dialog upon clicking "preferences"
 void MainWindow::on_actionPreferences_triggered()
 {
+    if (!preferencesDialog) {
+        preferencesDialog = new PreferencesDialog(this);
+    }
 
+    preferencesDialog->show();
+}
+
+void MainWindow::changeColours(int red, int green, int blue, int index) {
+    if (index == 0) {
+        QTextCursor cursor = maintext->textCursor();
+        QTextCharFormat format;
+        format.setForeground(QColor(red, green, blue));
+        cursor.select(QTextCursor::Document);
+        cursor.setCharFormat(format);
+        cursor.clearSelection();
+        maintext->setTextCursor(cursor);
+    }
 }
 

@@ -7,6 +7,7 @@
 #include <QVBoxLayout>
 #include "finddialog.h"
 #include "exitdialog.h"
+#include "preferencesdialog.h"
 #include <QEventLoop>
 #include <QCloseEvent>
 
@@ -34,6 +35,7 @@ public slots:
     void saveLeave();
     void leave();
     void replace(bool all, QString &replacetext);
+    void changeColours(int red, int green, int blue, int index);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -50,10 +52,12 @@ private slots:
     void defaultZoom();
     void changeFont(int size);
     void clearHighlights();
+    void on_actionPreferences_triggered();
 
 private:
     FindDialog *findDialog;
     ExitDialog *exitDialog;
+    PreferencesDialog *preferencesDialog;
     QVBoxLayout *mainlayout;
     QLabel *namelabel;
     QTextEdit *maintext;

@@ -68,7 +68,7 @@
     <addaction name="actionCopy"/>
     <addaction name="actionPaste"/>
    </widget>
-   <widget class="QMenu" name="menuayaya">
+   <widget class="QMenu" name="menuView">
     <property name="title">
      <string>View</string>
     </property>
@@ -76,15 +76,16 @@
     <addaction name="actionZoomOut"/>
     <addaction name="actionDefaultZoom"/>
    </widget>
-   <widget class="QMenu" name="menucute">
+   <widget class="QMenu" name="menuSettings">
     <property name="title">
-     <string>cute</string>
+     <string>Settings</string>
     </property>
+    <addaction name="actionPreferences"/>
    </widget>
    <addaction name="menufile"/>
    <addaction name="menuhello"/>
-   <addaction name="menuayaya"/>
-   <addaction name="menucute"/>
+   <addaction name="menuView"/>
+   <addaction name="menuSettings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionExit">
@@ -178,6 +179,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+V</string>
+   </property>
+  </action>
+  <action name="actionPreferences">
+   <property name="text">
+    <string>Preferences</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
    </property>
   </action>
  </widget>
