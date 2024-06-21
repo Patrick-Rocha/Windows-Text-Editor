@@ -9,6 +9,7 @@
 #include <QSlider>
 #include <QLineEdit>
 #include <QRadioButton>
+#include <QListWidget>
 
 namespace Ui {
 class PreferencesDialog;
@@ -24,10 +25,19 @@ public:
 
 public slots:
     void handleDirectoryRequest();
+    void handleFontRequest(QString fontChange);
+    void handleNotifyFont(QFont currentFont);
+    void handleWeightRequest(QListWidgetItem *weight);
+    void handleStyleRequest(QListWidgetItem *style);
+    void handleSpacingRequest(QString spacing);
 
 signals:
     void colourRequest(int red, int green, int blue, int index);
     void directoryRequest(bool current, bool remember, QString directory);
+    void fontRequest(QString fontChange);
+    void weightRequest(QString weight);
+    void styleRequest(QString style);
+    void spacingRequest(int spacing);
 
 private:
     Ui::PreferencesDialog *ui;
@@ -50,6 +60,13 @@ private:
     QPushButton *chooseButton;
     QLineEdit *chooseText;
 
+    QLineEdit *fontText;
+    QListWidget *fontList;
+    QListWidget *weightList;
+    QListWidget *styleList;
+    QLineEdit *spacingText;
+    QPushButton *fontRestoreButton;
+
 private slots:
     void validateInput();
     void updateSliderFromText();
@@ -61,6 +78,9 @@ private slots:
     void handleColourRequest();
     void on_chooseButton_clicked();
     void editableChooseText(bool checked);
+    void filterFontList(QString text);
+    void updateFontText(QListWidgetItem *item);
+    void restoreDefault();
 };
 
 #endif // PREFERENCESDIALOG_H

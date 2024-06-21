@@ -15,6 +15,7 @@ ExitDialog::ExitDialog(QWidget *parent)
     saveLabel = findChild<QLabel*>("saveLabel");
 
     // Sets the cancel button to exit this window
+    connect(ui->cancelButton, &QPushButton::clicked, this, &ExitDialog::cancelNotify);
     connect(cancelButton, &QPushButton::clicked, this, &ExitDialog::close);
     connect(this, &ExitDialog::exitConfirm, this, &ExitDialog::close);
 
@@ -35,6 +36,5 @@ void ExitDialog::on_dontSaveButton_clicked() {
 }
 
 void ExitDialog::leave() {
-    qDebug("leaving");
     emit exitConfirm();
 }

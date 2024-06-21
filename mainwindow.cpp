@@ -1,11 +1,3 @@
-// TODO: Maybe make tabs like in notepad++
-// Font changer?
-// Add new and new window buttons
-// Complete preferences
-// Remember last directory
-// Font
-// Search engine
-
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include "exitdialog.h"
@@ -43,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
     maintext->setStyleSheet("QTextEdit { margin: 0px; padding: 0px; border: none; border-top: 1px solid gray; }");
     namelabel->setStyleSheet("QLabel#namelabel { padding-top: 10px; padding-right: 10px; }");
     changeFont(12);
+    fontSize = 12;
 
     // Set margins to 0
     mainlayout->setContentsMargins(0, 0, 0, 0);
@@ -54,7 +47,7 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(centralWidget);
 
     // Set the initial title of the window
-    setWindowTitle(tr("No File Opened - Patrick's Text Editor"));
+    setWindowTitle(tr("New File - Patrick's Text Editor"));
 
     // Moving the name label
     namelabel->setGeometry(0, this->height() - namelabel->height(), this->width(), namelabel->height());
@@ -84,6 +77,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(preferencesDialog, &PreferencesDialog::colourRequest, this, &MainWindow::changeColours);
     connect(preferencesDialog, &PreferencesDialog::directoryRequest, this, &MainWindow::changeDirectory);
     connect(this, &MainWindow::directoryRequest, preferencesDialog, &PreferencesDialog::handleDirectoryRequest);
+    connect(preferencesDialog, &PreferencesDialog::fontRequest, this, &MainWindow::changeFontFamily);
+    connect(this, &MainWindow::notifyFont, preferencesDialog, &PreferencesDialog::handleNotifyFont);
+    connect(preferencesDialog, &PreferencesDialog::styleRequest, this, &MainWindow::changeFontStyle);
+    connect(preferencesDialog, &PreferencesDialog::weightRequest, this, &MainWindow::changeFontWeight);
+    connect(preferencesDialog, &PreferencesDialog::spacingRequest, this, &MainWindow::changeFontSpacing);
+    connect(exitDialog, &ExitDialog::cancelNotify, this, &MainWindow::handleCancelNotify);
 
     // Setting initial values for global variables
     highlightCount = 1;
@@ -95,6 +94,13 @@ MainWindow::MainWindow(QWidget *parent)
     otherHighlightColour = QColor(255, 255, 0);
     fileDirectory = "";
     chosenDirectory = "";
+    makingNew = false;
+    fileName = "";
+
+    // Handling the font
+    fontFamilies = QFontDatabase::families();
+    QFont currentFont = maintext->font();
+    emit notifyFont(currentFont);
 }
 
 MainWindow::~MainWindow()
@@ -132,7 +138,6 @@ void MainWindow::openFile() {
     // Saving the file directory into the global variable
     QFileInfo fileInfo(file);
     fileDirectory = fileInfo.path();
-    qDebug() << fileDirectory;
     file.close();
     fileSaved = true;
 
@@ -142,12 +147,13 @@ void MainWindow::openFile() {
 void MainWindow::changeFont(int size) {
     font = maintext->font();
     font.setPointSize(size);
+    fontSize = size;
     maintext->setFont(font);
 }
 
 void MainWindow::zoomIn() {
     int fontSize = font.pointSize();
-    if (fontSize < 45) {
+    if (fontSize < 75) {
         changeFont(fontSize + 2);
     }
 }
@@ -165,7 +171,6 @@ void MainWindow::defaultZoom() {
 
 // Save button action
 void MainWindow::saveFile() {
-    qDebug() << "Save button wowwerwer!";
     if (fileName.isEmpty()) {
         saveAsFile();
     } else {
@@ -223,12 +228,29 @@ void MainWindow::find() {
 
 void MainWindow::saveLeave() {
     saveFile();
-    emit leaveRequested();
+    if (!makingNew) {
+        emit leaveRequested();
+    } else {
+        fileName = "";
+        fileDirectory = "";
+        maintext->setText("");
+        exitDialog->close();
+        fileSaved = true;
+        setWindowTitle(tr("New File - Patrick's Text Editor"));
+    }
 }
 
 void MainWindow::leave() {
-    fileSaved = true;
-    emit readyToClose();
+    if (!makingNew) {
+        emit readyToClose();
+    } else {
+        fileName = "";
+        fileDirectory = "";
+        maintext->setText("");
+        exitDialog->close();
+        fileSaved = true;
+        setWindowTitle(tr("New File - Patrick's Text Editor"));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
@@ -236,7 +258,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         if (!exitDialog) {
             exitDialog = new ExitDialog(this);
         }
-
+        exitDialog->setWindowModality(Qt::ApplicationModal);
         exitDialog->show();
         event->ignore();
     }
@@ -253,8 +275,6 @@ void MainWindow::highlight(QString &findtext, bool highlight, bool caseMatch, bo
             } else {
                 highlightCount--;
             }
-            qDebug() << highlightCount;
-            qDebug() << totalHighlight;
         } else if (direction == "down") {
             if (highlightCount >= totalHighlight) {
                 highlightCount = 1;
@@ -343,14 +363,10 @@ void MainWindow::clearHighlights() {
 
 // The replace function within the find dialog
 void MainWindow::replace(bool all, QString &replaceText) {
-    qDebug("replace");
-    qDebug() << replaceText;
     if (!replaceText.isEmpty()) {
         foreach (const QTextEdit::ExtraSelection &sel, extraSelections) {
             QTextCursor cur = sel.cursor;
             QTextCharFormat fmt = sel.format;
-            qDebug() << "Selection from" << cur.selectionStart() << "to" << cur.selectionEnd();
-            qDebug() << "Background color:" << fmt.background().color().name();
 
             // Check if the background color is one of the highlighted colours
             QString bgColour = fmt.background().color().name();
@@ -399,14 +415,20 @@ void MainWindow::updateLineCount() {
 void MainWindow::updateWindowTitle() {
     fileSaved = false;
     if (fileName.isEmpty()) {
-        setWindowTitle(tr("*No File Open - Patrick's Text Editor"));
-    } else {
+        setWindowTitle(tr("*New File - Patrick's Text Editor"));
+    } else if (!makingNew) {
         setWindowTitle(tr("*%1 - Patrick's Text Editor").arg(QFileInfo(fileName).fileName()));
     }
 
     // Update the highlights to prevent a certain bug
     if (findDialog->isVisible()) {
         emit highlightRequest(true);
+    }
+
+    if (makingNew) {
+        setWindowTitle(tr("New File - Patrick's Text Editor"));
+        makingNew = false;
+        fileSaved = true;
     }
 }
 
@@ -420,6 +442,7 @@ void MainWindow::on_actionPreferences_triggered()
     preferencesDialog->show();
 }
 
+// Changes the colours of various widgets
 void MainWindow::changeColours(int red, int green, int blue, int index) {
     if (index == 0) {
         QTextCursor cursor = maintext->textCursor();
@@ -437,7 +460,18 @@ void MainWindow::changeColours(int red, int green, int blue, int index) {
         maintext->setTextCursor(cursor);
     } else if (index == 1) {
         QString backgroundColor = QString("rgb(%1, %2, %3)").arg(red).arg(green).arg(blue);
-        maintext->setStyleSheet(QString("background-color: %1;").arg(backgroundColor));
+        QString currentStyleSheet = maintext->styleSheet();
+
+        // Check where the background-color is in the stylesheet
+        int index = currentStyleSheet.indexOf("background-color:");
+        if (index == -1) {
+            currentStyleSheet += QString("QTextEdit { background-color: %1; }").arg(backgroundColor);
+        } else {
+            int endIndex = currentStyleSheet.indexOf(";", index); // Find end of the property
+            QString oldBackgroundColor = currentStyleSheet.mid(index, endIndex - index + 1);
+            currentStyleSheet.replace(oldBackgroundColor, QString("background-color: %1;").arg(backgroundColor));
+        }
+        maintext->setStyleSheet(currentStyleSheet);
     } else if (index == 2) {
         currentHighlightColour = QColor(red, green, blue);
         if (findDialog->isVisible()) {
@@ -451,6 +485,7 @@ void MainWindow::changeColours(int red, int green, int blue, int index) {
     }
 }
 
+// Changes the directory used by "save as" and "open"
 void MainWindow::changeDirectory(bool current, bool remember, QString directory) {
     if (current) {
         chosenDirectory = fileDirectory;
@@ -465,4 +500,100 @@ void MainWindow::changeDirectory(bool current, bool remember, QString directory)
     if (!(dir.exists() && dir.isReadable())) {
         chosenDirectory = "";
     }
+}
+
+// Changes the font of the main text
+void MainWindow::changeFontFamily(QString fontChange) {
+    if (fontFamilies.contains(fontChange)) {
+        QFont newFont(fontChange, fontSize);
+        maintext->setFont(newFont);
+    }
+}
+
+// Changes the font's weight (bold, thin, etc)
+void MainWindow::changeFontWeight(QString weight) {
+    QFont font = maintext->font();
+
+    QFont::Weight fontWeight = QFont::Normal;
+    if (weight == "Thin") {
+        fontWeight = QFont::Thin;
+    } else if (weight == "Extra Light") {
+        fontWeight = QFont::ExtraLight;
+    } else if (weight == "Light") {
+        fontWeight = QFont::Light;
+    } else if (weight == "Normal") {
+        fontWeight = QFont::Normal;
+    } else if (weight == "Medium") {
+        fontWeight = QFont::Medium;
+    } else if (weight == "Demi Bold") {
+        fontWeight = QFont::DemiBold;
+    } else if (weight == "Bold") {
+        fontWeight = QFont::Bold;
+    } else if (weight == "Extra Bold") {
+        fontWeight = QFont::ExtraBold;
+    } else if (weight == "Black") {
+        fontWeight = QFont::Black;
+    }
+
+    font.setWeight(fontWeight);
+    maintext->setFont(font);
+}
+
+// Changes the font's style
+void MainWindow::changeFontStyle(QString style) {
+    QFont font = maintext->font();
+
+    QFont::Style fontStyle = QFont::StyleNormal;
+    if (style == "Normal") {
+        fontStyle = QFont::StyleNormal;
+    } else if (style == "Italic") {
+        fontStyle = QFont::StyleItalic;
+    } else if (style == "Oblique") {
+        fontStyle = QFont::StyleOblique;
+    }
+
+    font.setStyle(fontStyle);
+    maintext->setFont(font);
+}
+
+// Changes the font's spacing
+void MainWindow::changeFontSpacing(int spacing) {
+    QFont font = maintext->font();
+    font.setLetterSpacing(QFont::PercentageSpacing, spacing);
+    maintext->setFont(font);
+}
+
+// Hitting copy
+void MainWindow::on_actionCopy_triggered() {
+    maintext->copy();
+}
+
+// Hitting paste
+void MainWindow::on_actionPaste_triggered() {
+    maintext->paste();
+}
+
+// Hitting the new button
+void MainWindow::on_actionNew_triggered()
+{
+    if (!fileSaved) {
+        makingNew = true;
+        if (!exitDialog) {
+            exitDialog = new ExitDialog(this);
+        }
+        exitDialog->setWindowModality(Qt::ApplicationModal);
+        exitDialog->show();
+    } else {
+        fileName = "";
+        fileDirectory = "";
+        makingNew = false;
+        maintext->setText("");
+        setWindowTitle(tr("New File - Patrick's Text Editor"));
+        fileSaved = true;
+    }
+}
+
+// Helps avoid a certain bug regarding the "new" button
+void MainWindow::handleCancelNotify() {
+    makingNew = false;
 }

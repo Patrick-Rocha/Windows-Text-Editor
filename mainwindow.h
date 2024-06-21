@@ -10,6 +10,7 @@
 #include "preferencesdialog.h"
 #include <QEventLoop>
 #include <QCloseEvent>
+#include <QFile>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -30,6 +31,7 @@ signals:
     void readyToClose();
     void highlightRequest(bool changingText);
     void directoryRequest();
+    void notifyFont(QFont currentFont);
 
 public slots:
     void highlight(QString &findtext, bool highlight, bool caseMatch, bool wholeMatch, QString direction, bool changingText);
@@ -38,6 +40,11 @@ public slots:
     void replace(bool all, QString &replacetext);
     void changeColours(int red, int green, int blue, int index);
     void changeDirectory(bool current, bool remember, QString directory);
+    void changeFontFamily(QString fontChange);
+    void changeFontWeight(QString weight);
+    void changeFontStyle(QString style);
+    void changeFontSpacing(int spacing);
+    void handleCancelNotify();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -55,6 +62,9 @@ private slots:
     void changeFont(int size);
     void clearHighlights();
     void on_actionPreferences_triggered();
+    void on_actionCopy_triggered();
+    void on_actionPaste_triggered();
+    void on_actionNew_triggered();
 
 private:
     FindDialog *findDialog;
@@ -77,5 +87,8 @@ private:
     QColor otherHighlightColour;
     QString chosenDirectory;
     QString fileDirectory;
+    QStringList fontFamilies;
+    int fontSize;
+    bool makingNew;
 };
 #endif // MAINWINDOW_H

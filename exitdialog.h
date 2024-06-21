@@ -20,6 +20,7 @@ signals:
     void saveRequested();
     void dontSaveRequested();
     void exitConfirm();
+    void cancelNotify();
 
 public slots:
     void leave();

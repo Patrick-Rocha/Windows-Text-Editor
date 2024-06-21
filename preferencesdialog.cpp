@@ -9,6 +9,8 @@
 #include <QDebug>
 #include <QRadioButton>
 #include <QFileDialog>
+#include <QListWidget>
+#include <QFontDatabase>
 
 PreferencesDialog::PreferencesDialog(QWidget *parent)
     : QDialog(parent)
@@ -27,15 +29,44 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
     chooseRadio = findChild<QRadioButton*>("chooseRadio");
     chooseButton = findChild<QPushButton*>("chooseButton");
     chooseText = findChild<QLineEdit*>("chooseText");
+    fontText = findChild<QLineEdit*>("fontText");
+    fontList = findChild<QListWidget*>("fontList");
+    weightList = findChild<QListWidget*>("weightList");
+    styleList = findChild<QListWidget*>("styleList");
+    spacingText = findChild<QLineEdit*>("spacingText");
+    fontRestoreButton = findChild<QPushButton*>("fontRestoreButton");
+
+    // Set up validators and max lengths
+    QIntValidator *validator = new QIntValidator(0, 9999, this);
+
+    spacingText->setValidator(validator);
+    spacingText->setMaxLength(4);
 
     // Establishing some connections
     connect(ui->currentRadio, &QRadioButton::clicked, this, &PreferencesDialog::handleDirectoryRequest);
-    connect(ui->rememberRadio, &QRadioButton::clicked, this, &PreferencesDialog::handleDirectoryRequest);
     connect(ui->chooseRadio, &QRadioButton::clicked, this, &PreferencesDialog::handleDirectoryRequest);
     connect(ui->chooseText, &QLineEdit::textChanged, this, &PreferencesDialog::handleDirectoryRequest);
     connect(ui->chooseRadio, &QRadioButton::toggled, this, &PreferencesDialog::editableChooseText);
+    connect(ui->fontText, &QLineEdit::textChanged, this, &PreferencesDialog::filterFontList);
+    connect(ui->fontList, &QListWidget::itemClicked, this, &PreferencesDialog::updateFontText);
+    connect(ui->fontList, &QListWidget::currentItemChanged, this, &PreferencesDialog::updateFontText);
+    connect(ui->fontText, &QLineEdit::textChanged, this, &PreferencesDialog::handleFontRequest);
+    connect(ui->weightList, &QListWidget::itemClicked, this, &PreferencesDialog::handleWeightRequest);
+    connect(ui->weightList, &QListWidget::currentItemChanged, this, &PreferencesDialog::handleWeightRequest);
+    connect(ui->styleList, &QListWidget::itemClicked, this, &PreferencesDialog::handleStyleRequest);
+    connect(ui->styleList, &QListWidget::currentItemChanged, this, &PreferencesDialog::handleStyleRequest);
+    connect(ui->spacingText, &QLineEdit::textChanged, this, &PreferencesDialog::handleSpacingRequest);
+    connect(ui->fontRestoreButton, &QPushButton::pressed, this, &PreferencesDialog::restoreDefault);
 
     PreferencesDialog::editableChooseText(false);
+
+    // Get the list of available fonts
+    QStringList fontFamilies = QFontDatabase::families();
+    foreach (const QString &family, fontFamilies) {
+        fontList->addItem(family);
+    }
+
+    restoreDefault();
 
     // Initialize sliders and text fields
     for (int i = 0; i < 4; ++i) {
@@ -233,8 +264,6 @@ void PreferencesDialog::handleDirectoryRequest() {
     bool remember = false;
     if (ui->currentRadio->isChecked()) {
         current = true;
-    } else if (ui->rememberRadio->isChecked()) {
-        remember = true;
     } else {
         directory = ui->chooseText->text();
     }
@@ -243,4 +272,58 @@ void PreferencesDialog::handleDirectoryRequest() {
 
 void PreferencesDialog::editableChooseText(bool checked) {
     ui->chooseText->setReadOnly(!checked);
+}
+
+void PreferencesDialog::filterFontList(QString text) {
+    QList<QListWidgetItem *> items = fontList->findItems(text, Qt::MatchStartsWith);
+    if (!items.isEmpty()) {
+        fontList->scrollToItem(items.first());
+        fontList->setCurrentItem(items.first());
+    }
+}
+
+void PreferencesDialog::updateFontText(QListWidgetItem *item) {
+    if (item) {
+        fontText->setText(item->text());
+    }
+}
+
+void PreferencesDialog::handleFontRequest(QString fontChange) {
+    emit fontRequest(fontChange);
+}
+
+void PreferencesDialog::handleNotifyFont(QFont currentFont) {
+    fontText->setText(currentFont.family());
+}
+
+void PreferencesDialog::handleWeightRequest(QListWidgetItem *weight) {
+    emit weightRequest(weight->text());
+}
+
+void PreferencesDialog::handleStyleRequest(QListWidgetItem *style) {
+    emit styleRequest(style->text());
+}
+
+void PreferencesDialog::handleSpacingRequest(QString spacing) {
+    emit spacingRequest(spacing.toInt());
+}
+
+// Restores the default options for the font section
+void PreferencesDialog::restoreDefault() {
+    // Sets the font family
+    QList<QListWidgetItem*> items = ui->fontList->findItems("Segoe UI", Qt::MatchExactly);
+    if (!items.isEmpty()) {
+        fontList->setCurrentItem(items.first());
+    }
+
+    // Sets the font weight
+    items = ui->weightList->findItems("Normal", Qt::MatchExactly);
+    weightList->setCurrentItem(items.first());
+
+    // Sets the font style
+    items = ui->styleList->findItems("Normal", Qt::MatchExactly);
+    styleList->setCurrentItem(items.first());
+
+    // Sets the spacing
+    spacingText->setText("100");
 }
